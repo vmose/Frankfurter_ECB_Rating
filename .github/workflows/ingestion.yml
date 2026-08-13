@@ -1,0 +1,75 @@
+name: Ingestion
+
+# Daily pull from the Frankfurter API -> raw Parquet -> BigQuery raw table.
+# On success, triggers dbt.yml (see dbt.yml's workflow_run trigger).
+
+on:
+  schedule:
+    # 17:00 UTC — after the ECB's ~16:00 CET daily publish, with margin.
+    - cron: "0 17 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "extract.py mode"
+        type: choice
+        options: [latest, backfill]
+        default: latest
+      start:
+        description: "Backfill start date YYYY-MM-DD (mode=backfill only)"
+        required: false
+      end:
+        description: "Backfill end date YYYY-MM-DD (mode=backfill only)"
+        required: false
+
+permissions:
+  contents: read
+  id-token: write   # required for keyless Workload Identity Federation auth
+
+jobs:
+  extract-and-load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Extract (latest)
+        if: github.event.inputs.mode != 'backfill'
+        working-directory: ingestion
+        run: python extract.py --mode latest
+
+      - name: Extract (backfill)
+        if: github.event.inputs.mode == 'backfill'
+        working-directory: ingestion
+        run: |
+          python extract.py --mode backfill \
+            --start "${{ github.event.inputs.start }}" \
+            --end "${{ github.event.inputs.end }}"
+
+      - name: Load into BigQuery
+        working-directory: ingestion
+        run: python load.py --project "${{ vars.GCP_PROJECT_ID }}" --all
+
+      # Raw Parquet partitions are ephemeral to the runner by design —
+      # BigQuery is the durable store. Uploading as a workflow artifact
+      # anyway makes local debugging easier without re-hitting the API.
+      - name: Upload raw Parquet as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-parquet-${{ github.run_id }}
+          path: ingestion/data/raw/
+          retention-days: 14
