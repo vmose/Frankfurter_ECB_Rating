@@ -61,7 +61,7 @@ def ensure_dataset(
     except NotFound:
         log.info("dataset %s.%s not found, creating", project, dataset_id)
         ds = bigquery.Dataset(ref)
-        ds.location = "US"
+        ds.location = "EU"
         client.create_dataset(ds)
 
 
