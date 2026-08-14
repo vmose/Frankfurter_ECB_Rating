@@ -10,9 +10,9 @@ variable "region" {
 }
 
 variable "bq_location" {
-  description = "BigQuery dataset location. 'US' is a multi-region and the simplest default."
+  description = "BigQuery dataset location. 'EU' is a multi-region and the simplest default."
   type        = string
-  default     = "US"
+  default     = "EU"
 }
 
 variable "environment" {
