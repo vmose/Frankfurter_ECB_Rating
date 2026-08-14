@@ -3,12 +3,6 @@ variable "project_id" {
   type        = string
 }
 
-variable "region" {
-  description = "Default region for regional resources (the BigQuery datasets themselves use bq_location below)."
-  type        = string
-  default     = "us-central1"
-}
-
 variable "bq_location" {
   description = "BigQuery dataset location. 'EU' is a multi-region and the simplest default."
   type        = string
