@@ -170,7 +170,7 @@ def payload_to_frame(payload: list[dict]) -> pd.DataFrame:
     names. Each row already carries its own rate_date — we do NOT
     assume one uniform date across the whole payload.
     """
-    ingested_at = datetime.now(timezone.utc).isoformat()
+    ingested_at = datetime.now(timezone.utc)
     df = pd.DataFrame(
         [
             {
@@ -186,6 +186,7 @@ def payload_to_frame(payload: list[dict]) -> pd.DataFrame:
     )
     df["rate_date"] = pd.to_datetime(df["rate_date"]).dt.date
     df["rate"] = df["rate"].astype("float64")
+    df["ingested_at"] = pd.to_datetime(df["ingested_at"], utc=True)
     return df
 
 
@@ -194,7 +195,7 @@ def write_partition(df: pd.DataFrame, rate_date: date, out_root: Path = RAW_ROOT
     partition_dir = out_root / f"dt={rate_date.isoformat()}"
     partition_dir.mkdir(parents=True, exist_ok=True)
     out_path = partition_dir / "rates.parquet"
-    df.to_parquet(out_path, index=False)
+    df.to_parquet(out_path,index=False,coerce_timestamps="us",)
     log.info("wrote %d rows -> %s", len(df), out_path)
     return out_path
 
