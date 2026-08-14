@@ -1,0 +1,17 @@
+# --- Ingestion ---
+requests>=2.31,<3
+pandas>=2.2,<3
+pyarrow>=16.0        # parquet read/write
+
+# --- BigQuery ---
+google-cloud-bigquery>=3.25,<4
+
+# --- dbt ---
+dbt-core>=1.8,<2
+dbt-bigquery>=1.8,<2
+
+# --- Testing ---
+pytest>=8.0,<9
+
+# --- Lint / format ---
+ruff>=0.5,<1
