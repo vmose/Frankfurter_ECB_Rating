@@ -1,2 +1,2 @@
-*.sql text
-*.python text
+*.sql linguist-detectable
+*.python linguist-detectable
