@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fixing Board — Public Data Observatory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="board-header">
+    <div class="board-header__mark">
+      <span class="mark-dot" aria-hidden="true"></span>
+      <span class="mark-text">PUBLIC DATA OBSERVATORY</span>
+    </div>
+    <h1 class="board-header__title">Fixing Board</h1>
+    <p class="board-header__sub">Daily ECB reference rates, ingested and reconciled automatically.</p>
+    <div class="board-header__meta">
+      <span id="as-of-date">as of —</span>
+      <span class="meta-divider" aria-hidden="true">&middot;</span>
+      <span id="pair-count">— pairs</span>
+      <span class="meta-divider" aria-hidden="true">&middot;</span>
+      <span id="quality-status" class="quality-status" data-state="unknown">checking quality&hellip;</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="board" id="board" aria-label="Latest currency rates">
+      <!-- flap cells injected by app.js -->
+    </section>
+
+    <section class="detail" id="detail" hidden>
+      <div class="detail__head">
+        <h2 id="detail-title">—</h2>
+        <button id="detail-close" class="detail__close" aria-label="Close detail view">&times;</button>
+      </div>
+      <div class="detail__chart-wrap">
+        <svg id="detail-chart" viewBox="0 0 720 320" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="detail__stats" id="detail-stats"></div>
+    </section>
+  </main>
+
+  <footer class="board-footer">
+    <p>Source: Frankfurter API (European Central Bank reference rates). Pipeline: GitHub Actions &rarr; BigQuery &rarr; dbt &rarr; quality checks.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

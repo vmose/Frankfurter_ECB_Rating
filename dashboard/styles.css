@@ -1,0 +1,291 @@
+/* ---------------------------------------------------------------
+   Public Data Observatory — Fixing Board
+   Palette: ink / paper / ledger-green / rust / dim-gold
+----------------------------------------------------------------- */
+
+:root {
+  --ink: #0F1210;
+  --ink-raised: #171B18;
+  --paper: #EDE8DD;
+  --paper-dim: #A8A398;
+  --hairline: #2B302C;
+  --gain: #3F7D5C;
+  --loss: #A8503A;
+  --gold: #B8944F;
+
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius: 3px;
+}
+
+* { box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-sans);
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------- Header ---------------- */
+
+.board-header {
+  padding: 3rem clamp(1.25rem, 4vw, 3rem) 1.5rem;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.board-header__mark {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.mark-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  display: inline-block;
+}
+
+.mark-text {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+.board-header__title {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+.board-header__sub {
+  margin: 0 0 1rem;
+  color: var(--paper-dim);
+  font-size: 0.95rem;
+  max-width: 40ch;
+}
+
+.board-header__meta {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--paper-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.meta-divider { opacity: 0.4; }
+
+.quality-status {
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+}
+.quality-status[data-state="pass"] { color: var(--gain); border-color: var(--gain); }
+.quality-status[data-state="warn"] { color: var(--gold); border-color: var(--gold); }
+.quality-status[data-state="fail"] { color: var(--loss); border-color: var(--loss); }
+
+/* ---------------- Board grid ---------------- */
+
+main {
+  flex: 1;
+  padding: 2rem clamp(1.25rem, 4vw, 3rem) 3rem;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+}
+
+.flap-cell {
+  background: var(--ink);
+  padding: 1.4rem 1.3rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.flap-cell:hover,
+.flap-cell:focus-visible {
+  background: var(--ink-raised);
+  outline: none;
+}
+
+.flap-cell:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+
+.flap-cell__pair {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+  margin-bottom: 0.6rem;
+}
+
+.flap-cell__rate {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 1.9rem;
+  line-height: 1;
+  display: block;
+  margin-bottom: 0.55rem;
+
+  /* split-flap animation: each new value drops in */
+  animation: flap-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes flap-in {
+  0% { opacity: 0; transform: translateY(-8px); filter: blur(2px); }
+  60% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.flap-cell__delta {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.flap-cell__delta[data-dir="up"] { color: var(--gain); }
+.flap-cell__delta[data-dir="down"] { color: var(--loss); }
+.flap-cell__delta[data-dir="flat"] { color: var(--paper-dim); }
+
+.flap-cell__delta-arrow { font-size: 0.75rem; }
+
+/* ---------------- Detail panel ---------------- */
+
+.detail {
+  margin-top: 2rem;
+  border: 1px solid var(--hairline);
+  background: var(--ink-raised);
+  padding: 1.75rem clamp(1.25rem, 3vw, 2.25rem) 2rem;
+}
+
+.detail__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1rem;
+}
+
+.detail__head h2 {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  margin: 0;
+  font-weight: 600;
+}
+
+.detail__close {
+  background: none;
+  border: 1px solid var(--hairline);
+  color: var(--paper-dim);
+  font-size: 1.1rem;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  line-height: 1;
+}
+.detail__close:hover { color: var(--paper); border-color: var(--paper-dim); }
+
+.detail__chart-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+#detail-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-family: var(--font-mono);
+}
+
+.detail__stats {
+  display: flex;
+  gap: 2rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+}
+
+.detail__stats strong {
+  color: var(--paper);
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 0.15rem;
+}
+
+/* ---------------- Footer ---------------- */
+
+.board-footer {
+  border-top: 1px solid var(--hairline);
+  padding: 1.25rem clamp(1.25rem, 4vw, 3rem);
+  font-size: 0.78rem;
+  color: var(--paper-dim);
+}
+
+.board-footer p { margin: 0; }
+
+/* ---------------- Chart elements (drawn by app.js) ---------------- */
+
+.chart-line {
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 2;
+}
+
+.chart-area {
+  fill: var(--gold);
+  opacity: 0.08;
+}
+
+.chart-axis text {
+  fill: var(--paper-dim);
+  font-size: 10px;
+}
+
+.chart-axis line,
+.chart-axis path {
+  stroke: var(--hairline);
+}
+
+.chart-dot {
+  fill: var(--ink);
+  stroke: var(--gold);
+  stroke-width: 2;
+}
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width: 480px) {
+  .board { grid-template-columns: 1fr 1fr; }
+  .flap-cell__rate { font-size: 1.5rem; }
+}
