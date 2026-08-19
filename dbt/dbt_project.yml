@@ -19,7 +19,7 @@ clean-targets:
 
 
 models:
- public_data_observatory:
+ Frankfurter_ECB_Rating:
     staging:
       +materialized: view
       +schema: staging

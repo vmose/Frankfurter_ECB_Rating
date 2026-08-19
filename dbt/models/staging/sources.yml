@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: raw
+    database: frankfurter-ecb-rating
+    schema: raw
+    tables:
+      - name: currency_rates_frankfurter
