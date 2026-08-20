@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: mart_currency_latest
+    description: One row per currency pair — the most recent rate and day-over-day move. Powers the dashboard's summary cards.
+    columns:
+      - name: base_currency
+        tests: [not_null]
+      - name: quote_currency
+        tests: [not_null]
+      - name: latest_rate
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [base_currency, quote_currency, source_name]
+
+  - name: mart_currency_history
+    description: Full daily time series per currency pair. Powers the dashboard's D3 line charts.
+    columns:
+      - name: as_of_date
+        tests: [not_null]
+      - name: rate
+        tests: [not_null]

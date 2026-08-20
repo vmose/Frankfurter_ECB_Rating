@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: int_currency_rates_daily_change
+    description: >
+      Adds day-over-day rate and percent change per (base_currency,
+      quote_currency, source) pair, using the prior available rate
+      (which may be more than 1 calendar day back over a weekend/holiday).
+    columns:
+      - name: rate_date
+        tests:
+          - not_null
+      - name: pct_change_since_prior
+        description: >
+          Null for the first observed rate of a pair (no prior to compare to).
