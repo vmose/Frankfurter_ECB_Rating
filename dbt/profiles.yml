@@ -11,7 +11,7 @@
 # or:
 #   export DBT_PROFILES_DIR=dbt
 
-public_data_observatory:
+Frankfurter_ECB_Rating:
   target: "{{ env_var('DBT_TARGET', 'dev') }}"
   outputs:
     dev:
