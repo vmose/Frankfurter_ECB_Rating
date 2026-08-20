@@ -1,0 +1,34 @@
+# dbt/profiles.yml
+#
+# No secrets live in this file — it reads everything from environment
+# variables and authenticates via Application Default Credentials
+# (ADC). In GitHub Actions, google-github-actions/auth (Workload
+# Identity Federation) sets up ADC for us. Locally, `gcloud auth
+# application-default login` does the same thing.
+#
+# Point dbt at this file with either:
+#   dbt build --profiles-dir dbt
+# or:
+#   export DBT_PROFILES_DIR=dbt
+
+public_data_observatory:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: staging
+      location: "{{ env_var('BQ_LOCATION', 'EU') }}"
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: staging
+      location: "{{ env_var('BQ_LOCATION', 'EU') }}"
+      threads: 8
+      job_execution_timeout_seconds: 300
+      job_retries: 1
