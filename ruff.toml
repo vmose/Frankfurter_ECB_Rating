@@ -1,0 +1,18 @@
+target-version = "py312"
+line-length = 100
+
+[lint]
+# A practical subset: real bugs and import hygiene, not style opinions
+# (no docstring/annotation/naive-datetime pedantry — this project uses
+# plain `date` objects deliberately, not tz-aware datetimes, since
+# exchange rates are inherently date-grained, not instant-grained).
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",  # line length is handled by `ruff format`, not the linter
+]
+
+[lint.per-file-ignores]
+# Tests intentionally sys.path.insert() before importing local modules
+# that live outside a proper package (ingestion/, quality/ have no
+# __init__.py by design — they're invoked as standalone CLI scripts).
+"tests/*.py" = ["E402"]
