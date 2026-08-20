@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: raw
+    database: "{{ target.project }}"
+    schema: raw
+    tables:
+      - name: currency_rates_frankfurter
+        description: >
+          Raw ECB reference exchange rates loaded from the Frankfurter API.
+          One row per (rate_date, base_currency, quote_currency, source).
+        loaded_at_field: ingested_at
+        freshness:
+          warn_after: {count: 30, period: hour}
+          error_after: {count: 72, period: hour}
+        columns:
+          - name: rate_date
+            tests:
+              - not_null
+          - name: base_currency
+            tests:
+              - not_null
+          - name: quote_currency
+            tests:
+              - not_null
+          - name: rate
+            tests:
+              - not_null

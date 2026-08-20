@@ -1,0 +1,105 @@
+name: dbt
+
+# Triggered automatically when Ingestion finishes successfully, so raw
+# data is guaranteed to exist before dbt runs. Also runnable by hand.
+# On success, triggers deploy.yml.
+
+on:
+  workflow_run:
+    workflows: ["Ingestion"]
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-check:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      BQ_LOCATION: ${{ vars.BQ_LOCATION || 'EU' }}
+      DBT_TARGET: prod
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: dbt deps
+        working-directory: dbt
+        run: dbt deps
+
+      - name: dbt build (run models + tests)
+        working-directory: dbt
+        run: dbt build
+
+      - name: dbt docs generate
+        working-directory: dbt
+        run: dbt docs generate
+
+      # --- Data quality layer ---------------------------------------
+      # Each script exits 0=pass, 1=warn, 2=fail, 3=error. We capture
+      # every exit code (without letting one failure short-circuit the
+      # others) so a single bad check doesn't hide problems elsewhere,
+      # then fail the job only if ANY check hit fail/error.
+      - name: Run quality checks
+        id: quality
+        working-directory: quality
+        run: |
+          set +e
+          declare -A results
+
+          python freshness.py --project "$GCP_PROJECT_ID"
+          results[freshness]=$?
+
+          python volume.py --project "$GCP_PROJECT_ID"
+          results[volume]=$?
+
+          python reconciliation.py --project "$GCP_PROJECT_ID"
+          results[reconciliation]=$?
+
+          python schema_drift.py --project "$GCP_PROJECT_ID"
+          results[schema_drift]=$?
+
+          echo "Results: ${results[@]}"
+          for name in "${!results[@]}"; do
+            echo "${name}=${results[$name]}" >> "$GITHUB_OUTPUT"
+          done
+
+          failed=0
+          for name in "${!results[@]}"; do
+            if [ "${results[$name]}" -ge 2 ]; then
+              echo "::error::${name} check failed (exit ${results[$name]})"
+              failed=1
+            elif [ "${results[$name]}" -eq 1 ]; then
+              echo "::warning::${name} check warned"
+            fi
+          done
+          exit $failed
+
+      - name: Upload dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-artifacts-${{ github.run_id }}
+          path: dbt/target/
+          retention-days: 14
