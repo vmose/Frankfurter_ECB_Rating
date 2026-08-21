@@ -48,7 +48,7 @@ import argparse
 import logging
 import sys
 import time
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -80,9 +80,7 @@ class FrankfurterError(RuntimeError):
     """Raised when the API responds with something we can't safely ingest."""
 
 
-def _get_with_retry(
-    session: requests.Session, url: str, params: dict
-) -> requests.Response:
+def _get_with_retry(session: requests.Session, url: str, params: dict) -> requests.Response:
     last_exc: Exception | None = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
@@ -141,7 +139,9 @@ def fetch_rates(
         # Documented error shape: {"message": "..."} on 400/404/422.
         try:
             body = resp.json()
-            msg = body.get("message", resp.text[:200]) if isinstance(body, dict) else resp.text[:200]
+            msg = (
+                body.get("message", resp.text[:200]) if isinstance(body, dict) else resp.text[:200]
+            )
         except ValueError:
             msg = resp.text[:200]
         raise FrankfurterError(f"status {resp.status_code} for {resp.url}: {msg}")
@@ -170,7 +170,7 @@ def payload_to_frame(payload: list[dict]) -> pd.DataFrame:
     names. Each row already carries its own rate_date — we do NOT
     assume one uniform date across the whole payload.
     """
-    ingested_at = datetime.now(timezone.utc)
+    ingested_at = datetime.now(UTC).isoformat()
     df = pd.DataFrame(
         [
             {
@@ -186,7 +186,6 @@ def payload_to_frame(payload: list[dict]) -> pd.DataFrame:
     )
     df["rate_date"] = pd.to_datetime(df["rate_date"]).dt.date
     df["rate"] = df["rate"].astype("float64")
-    df["ingested_at"] = pd.to_datetime(df["ingested_at"], utc=True)
     return df
 
 
@@ -195,7 +194,7 @@ def write_partition(df: pd.DataFrame, rate_date: date, out_root: Path = RAW_ROOT
     partition_dir = out_root / f"dt={rate_date.isoformat()}"
     partition_dir.mkdir(parents=True, exist_ok=True)
     out_path = partition_dir / "rates.parquet"
-    df.to_parquet(out_path,index=False,coerce_timestamps="us",)
+    df.to_parquet(out_path, index=False)
     log.info("wrote %d rows -> %s", len(df), out_path)
     return out_path
 
@@ -213,14 +212,17 @@ def write_by_date(df: pd.DataFrame, out_root: Path = RAW_ROOT) -> list[Path]:
     return written
 
 
-def run_latest(base: str, quotes: list[str], providers: str | None = DEFAULT_PROVIDERS) -> list[Path]:
+def run_latest(
+    base: str, quotes: list[str], providers: str | None = DEFAULT_PROVIDERS
+) -> list[Path]:
     payload = fetch_rates(base=base, quotes=quotes, providers=providers)
     df = payload_to_frame(payload)
     dates_found = sorted(df["rate_date"].unique())
     if len(dates_found) > 1:
         log.info(
             "latest pull spans %d dates (per-currency publish lag): %s",
-            len(dates_found), dates_found,
+            len(dates_found),
+            dates_found,
         )
     return write_by_date(df)
 
@@ -260,7 +262,13 @@ def run_backfill(
             )
             df = payload_to_frame(payload)
             written.extend(write_by_date(df))
-            log.info("chunk %s..%s: %d rows across %d date(s)", chunk_start, chunk_end, len(df), df["rate_date"].nunique())
+            log.info(
+                "chunk %s..%s: %d rows across %d date(s)",
+                chunk_start,
+                chunk_end,
+                len(df),
+                df["rate_date"].nunique(),
+            )
         except FrankfurterError as exc:
             log.error("skipping chunk %s..%s: %s", chunk_start, chunk_end, exc)
 
@@ -311,7 +319,9 @@ def main(argv: list[str] | None = None) -> int:
         log.error("--start must be <= --end")
         return 2
 
-    written = run_backfill(base=args.base.upper(), quotes=quotes, start=start, end=end, providers=providers)
+    written = run_backfill(
+        base=args.base.upper(), quotes=quotes, start=start, end=end, providers=providers
+    )
     log.info("backfill complete: %d partition file(s) written", len(written))
     return 0
 
