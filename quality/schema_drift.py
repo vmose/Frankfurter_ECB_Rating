@@ -35,6 +35,22 @@ from schema import FULL_TABLE_ID_TEMPLATE, RAW_CURRENCY_RATES_SCHEMA  # noqa: E4
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 log = logging.getLogger("schema_drift")
 
+# BigQuery's API can echo back either the legacy or standard-SQL name
+# for the same underlying type — e.g. a column created as FLOAT64
+# often comes back from get_table() as FLOAT. These pairs are NOT
+# type drift, just two spellings of one type. Normalize before
+# comparing so we only flag genuine mismatches.
+_TYPE_ALIASES = {
+    "INTEGER": "INT64",
+    "FLOAT": "FLOAT64",
+    "BOOLEAN": "BOOL",
+    "RECORD": "STRUCT",
+}
+
+
+def _normalize_type(type_name: str) -> str:
+    return _TYPE_ALIASES.get(type_name, type_name)
+
 
 def check_schema_drift(project: str) -> int:
     client = bigquery.Client(project=project)
@@ -56,7 +72,7 @@ def check_schema_drift(project: str) -> int:
 
     for name in sorted(set(expected) & set(live)):
         exp_field, live_field = expected[name], live[name]
-        if exp_field.field_type != live_field.field_type:
+        if _normalize_type(exp_field.field_type) != _normalize_type(live_field.field_type):
             type_mismatches.append((name, exp_field.field_type, live_field.field_type))
         # Only flag REQUIRED -> NULLABLE drift; NULLABLE -> REQUIRED is a
         # tightening, not a risk to downstream models.

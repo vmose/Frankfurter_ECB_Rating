@@ -39,7 +39,7 @@ SECOND_SOURCE_URL = "https://open.er-api.com/v6/latest/{base}"
 OUR_LATEST_QUERY = """
 select base_currency, quote_currency, latest_rate
 from `{project}.marts.mart_currency_latest`
-where (base_currency, quote_currency) in unnest(@pairs)
+where {where_clause}
 """
 
 
@@ -57,23 +57,26 @@ def fetch_reference_rate(base: str, quote: str) -> float | None:
 def check_reconciliation(project: str) -> int:
     client = bigquery.Client(project=project)
 
-    pair_structs = [{"base_currency": b, "quote_currency": q} for b, q in RECONCILE_PAIRS]
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ArrayQueryParameter(
-                "pairs",
-                "STRUCT<base_currency STRING, quote_currency STRING>",
-                pair_structs,
-            )
-        ]
-    )
+    # Plain scalar parameters + OR'd conditions, one pair per condition.
+    # (An earlier version tried to pass RECONCILE_PAIRS as a single
+    # STRUCT-typed ArrayQueryParameter — the BigQuery client needs
+    # StructQueryParameter objects for that, not plain dicts, and
+    # rejected the request outright. This is simpler and avoids that
+    # API surface entirely.)
+    conditions = []
+    params = []
+    for i, (base, quote) in enumerate(RECONCILE_PAIRS):
+        conditions.append(f"(base_currency = @base_{i} AND quote_currency = @quote_{i})")
+        params.append(bigquery.ScalarQueryParameter(f"base_{i}", "STRING", base))
+        params.append(bigquery.ScalarQueryParameter(f"quote_{i}", "STRING", quote))
+
+    query = OUR_LATEST_QUERY.format(project=project, where_clause=" OR ".join(conditions))
+    job_config = bigquery.QueryJobConfig(query_parameters=params)
 
     try:
         rows = {
             (r.base_currency, r.quote_currency): r.latest_rate
-            for r in client.query(
-                OUR_LATEST_QUERY.format(project=project), job_config=job_config
-            ).result()
+            for r in client.query(query, job_config=job_config).result()
         }
     except Exception as exc:  # noqa: BLE001
         log.error("query failed: %s", exc)
