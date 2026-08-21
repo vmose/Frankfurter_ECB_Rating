@@ -1,4 +1,4 @@
-﻿# Public Data Observatory
+﻿# Frankfurter Currency Public Data Observatory
 
 A daily pipeline that pulls ECB reference exchange rates from the
 [Frankfurter API](https://frankfurter.dev), lands them in BigQuery,
