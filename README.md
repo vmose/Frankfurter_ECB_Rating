@@ -4,7 +4,8 @@ A daily pipeline that pulls ECB reference exchange rates from the
 [Frankfurter API](https://frankfurter.dev), lands them in BigQuery,
 transforms them with dbt, runs them through four independent data
 quality checks, and publishes the result as a static D3 "fixing
-board" dashboard.
+board" dashboard. [Here](https://vmose.github.io/Frankfurter_ECB_Rating/)
+is the resulting app build from the entire pipeline. 
 
 ![Architecture](architecture.png)
 
