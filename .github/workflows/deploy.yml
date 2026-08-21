@@ -1,0 +1,79 @@
+name: Deploy Dashboard
+
+# Triggered after dbt.yml succeeds. Re-runs the quality checks (cheap,
+# idempotent) so export_marts.py can stamp the dashboard with a fresh
+# pass/warn/fail summary — workflow_run doesn't cleanly pass job
+# outputs across workflows, so re-running here is simpler than wiring
+# up cross-workflow artifact passing for four quick queries.
+
+on:
+  workflow_run:
+    workflows: ["dbt"]
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+  pages: write
+
+jobs:
+  export-and-deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Authenticate to GCP (Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Run quality checks (for dashboard status pill)
+        id: quality
+        working-directory: quality
+        run: |
+          set +e
+          python freshness.py --project "$GCP_PROJECT_ID";       echo "freshness=$?" >> "$GITHUB_OUTPUT"
+          python volume.py --project "$GCP_PROJECT_ID";          echo "volume=$?" >> "$GITHUB_OUTPUT"
+          python reconciliation.py --project "$GCP_PROJECT_ID";  echo "reconciliation=$?" >> "$GITHUB_OUTPUT"
+          python schema_drift.py --project "$GCP_PROJECT_ID";    echo "schema_drift=$?" >> "$GITHUB_OUTPUT"
+          exit 0   # never block deploy on quality status — the dashboard should still show what it knows
+
+      - name: Export marts to dashboard/data
+        working-directory: ingestion
+        run: |
+          python export_marts.py \
+            --project "$GCP_PROJECT_ID" \
+            --out-dir ../dashboard/data \
+            --quality-result freshness=${{ steps.quality.outputs.freshness }} \
+            --quality-result volume=${{ steps.quality.outputs.volume }} \
+            --quality-result reconciliation=${{ steps.quality.outputs.reconciliation }} \
+            --quality-result schema_drift=${{ steps.quality.outputs.schema_drift }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dashboard
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

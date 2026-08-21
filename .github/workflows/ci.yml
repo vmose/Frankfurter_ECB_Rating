@@ -1,0 +1,80 @@
+name: CI
+
+# Runs on every push/PR. Deliberately needs ZERO cloud credentials —
+# lint + unit tests only, so it works the same for a PR from a fork as
+# it does on main. The real, credentialed pipeline lives in
+# ingestion.yml / dbt.yml / deploy.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Format check (ruff)
+        run: ruff format --check .
+
+      - name: Unit tests
+        run: pytest tests/ -v
+
+  dbt-sql-syntax:
+    runs-on: ubuntu-latest
+    # Sanity-checks that every dbt model is at least valid Jinja/SQL
+    # syntax. This is intentionally NOT a full `dbt parse`/`dbt build` —
+    # those need real BigQuery credentials, which this job doesn't have
+    # and shouldn't need just to catch a typo. Full model validation
+    # happens in dbt.yml against the real warehouse.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install jinja2
+        run: pip install jinja2
+
+      - name: Check SQL/Jinja syntax
+        run: |
+          python - <<'EOF'
+          import sys
+          from pathlib import Path
+          import jinja2
+
+          env = jinja2.Environment()
+          failures = []
+
+          for path in sorted(Path("dbt/models").rglob("*.sql")):
+              text = path.read_text()
+              try:
+                  env.parse(text)
+              except jinja2.TemplateSyntaxError as exc:
+                  failures.append(f"{path}: {exc}")
+
+          if failures:
+              print("Jinja/SQL syntax errors found:")
+              for f in failures:
+                  print(f"  - {f}")
+              sys.exit(1)
+
+          print(f"OK: {len(list(Path('dbt/models').rglob('*.sql')))} model file(s) parsed cleanly")
+          EOF
